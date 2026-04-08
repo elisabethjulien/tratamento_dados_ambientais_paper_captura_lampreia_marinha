@@ -93,3 +93,85 @@ str(monthly_tides)
 # max_amplitude  : the highest daily amplitude observed in the month, indicates strongest spring tide
 # min_amplitude  : the lowest daily amplitude observed in the month, indicates weakest neap tide
 # range_amplitude: difference between max and min amplitude, quantifies the spring–neap contrast over the month
+
+####################
+# Loop todos dados --------------------------------------------------------------------------------------------
+###################
+
+# Define the folders (locations)
+locations <- c("AVEIRO", "DOURO", "FIGUEIRAFOZ", "VIANACASTELO")
+base_path <- "C:/Users/elili/Downloads/dados/dados/"
+
+# Initialize empty lists to store results
+all_daily <- list()
+all_monthly <- list()
+
+for (loc in locations) {
+  
+  folder_path <- file.path(base_path, loc)
+  files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+  
+  for (f in files) {
+    
+    # Read CSV
+    df <- read_csv(f)
+    
+    # Process daily stats
+    daily_stats <- df %>%
+      arrange(TIME) %>%
+      mutate(
+        date = as.Date(TIME),
+        dS   = SEA_LEVEL - lag(SEA_LEVEL)
+      ) %>%
+      group_by(date) %>%
+      summarise(
+        mean_sea_level = mean(SEA_LEVEL, na.rm = TRUE),
+        max_sea_level  = max(SEA_LEVEL, na.rm = TRUE),
+        min_sea_level  = min(SEA_LEVEL, na.rm = TRUE),
+        amplitude      = max_sea_level - min_sea_level,
+        mean_dS        = mean(dS, na.rm = TRUE),
+        n_obs          = n(),
+        .groups = "drop"
+      ) %>%
+      arrange(date) %>%
+      mutate(
+        t_days = as.numeric(date - min(date)),
+        sn_sin = sin(2 * pi * t_days / 14.77),
+        sn_cos = cos(2 * pi * t_days / 14.77),
+        location = loc
+      )
+    
+    # Append to list
+    all_daily[[length(all_daily) + 1]] <- daily_stats
+    
+    # Process monthly stats
+    monthly_stats <- daily_stats %>%
+      mutate(month = format(date, "%Y-%m")) %>%
+      group_by(month) %>%
+      summarise(
+        mean_amplitude = mean(amplitude),
+        sd_amplitude   = sd(amplitude),
+        max_amplitude  = max(amplitude),
+        min_amplitude  = min(amplitude),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        range_amplitude = max_amplitude - min_amplitude,
+        location = loc
+      )
+    
+    # Append to list
+    all_monthly[[length(all_monthly) + 1]] <- monthly_stats
+  }
+}
+
+# Combine all into single dataframes
+daily_stats_all   <- bind_rows(all_daily)
+monthly_stats_all <- bind_rows(all_monthly)
+
+# Check
+str(daily_stats_all)
+str(monthly_stats_all)
+
+write.csv(daily_stats_all, "C:/Users/elili/Downloads/dados_maregraficos_IH_diarios.csv")
+write.csv(monthly_stats_all, "C:/Users/elili/Downloads/dados_maregraficos_IH_mensais.csv")
