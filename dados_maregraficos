@@ -1,0 +1,95 @@
+####################
+# IH dados maregráficos --------------------------------------------------------------------------------------------
+###################
+library(dplyr)
+library(mgcv)
+
+#inspetion of a dataframe
+IH_SLEV_OBS_A1_866_220_20180301_20180331 <- read_csv("C:/Users/elili/Downloads/dados/dados/FIGUEIRAFOZ/IH_SLEV_OBS_A1_866-220_20180301_20180331.csv")
+
+unique(IH_SLEV_OBS_A1_866_220_20180301_20180331$SEA_LEVEL_QC)
+#all have quality "1" aka good 
+str(IH_SLEV_OBS_A1_866_220_20180301_20180331)
+
+range(IH_SLEV_OBS_A1_866_220_20180301_20180331$TIME)
+#[1] "2018-03-01 00:00:00 UTC" "2018-03-31 23:59:00 UTC" aka 1 mes
+
+IH_SLEV_OBS_A1_866_220_20180301_20180331 %>%
+  mutate(date = as.Date(TIME)) %>%
+  count(date)
+#1437 entries per day (nearly 1,440 aka 1 per minute)
+
+unique(IH_SLEV_OBS_A1_866_220_20180301_20180331$SEA_LEVEL)
+
+#--- Process tidal data and compute daily stats with spring-neap ---
+daily_stats <- IH_SLEV_OBS_A1_866_220_20180301_20180331 %>%
+  arrange(TIME) %>%
+  mutate(
+    date = as.Date(TIME),
+    dS = SEA_LEVEL - lag(SEA_LEVEL)
+  ) %>%
+  group_by(date) %>%
+  summarise(
+    mean_sea_level = mean(SEA_LEVEL, na.rm = TRUE),
+    max_sea_level  = max(SEA_LEVEL, na.rm = TRUE),
+    min_sea_level  = min(SEA_LEVEL, na.rm = TRUE),
+    amplitude      = max_sea_level - min_sea_level,
+    mean_dS        = mean(dS, na.rm = TRUE),
+    n_obs          = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(date) %>%
+  mutate(
+    t_days  = as.numeric(date - min(date)),
+    sn_sin  = sin(2 * pi * t_days / 14.77),  # spring-neap cycle
+    sn_cos  = cos(2 * pi * t_days / 14.77)
+  )
+
+str(daily_stats)
+# date          : the calendar day of observation (from TIME)
+# mean_sea_level: daily average sea level in meters, mean(SEA_LEVEL) per day
+# max_sea_level : highest sea level recorded that day, max(SEA_LEVEL)
+# min_sea_level : lowest sea level recorded that day, min(SEA_LEVEL)
+# amplitude     : tidal amplitude of the day, max_sea_level - min_sea_level
+# mean_dS       : mean change in sea level per minute (or time step), mean(SEA_LEVEL - lag(SEA_LEVEL))
+# n_obs         : number of sea level observations recorded that day, n()
+# t_days        : number of days since first observation, as.numeric(date - min(date))
+# sn_sin        : sine component of spring–neap tidal cycle, sin(2 * pi * t_days / 14.77)-used to capture the ~14.77-day spring-neap tidal cycle in a smooth, continuous way for modeling.
+# sn_cos        : cosine component of spring–neap tidal cycle, cos(2 * pi * t_days / 14.77)-used to capture the ~14.77-day spring-neap tidal cycle in a smooth, continuous way for modeling.
+
+# --- Quick plot ---
+# Plot amplitude with y-axis starting at -1
+plot(
+  daily_stats$date, 
+  daily_stats$amplitude, 
+  type = "l", 
+  ylim = c(-2, max(daily_stats$amplitude))  # set lower and upper y-limits
+)
+
+# Overlay spring-neap cycle
+lines(daily_stats$date, scale(daily_stats$sn_sin), col = "red")
+
+
+#monthly 
+
+monthly_tides <- daily_stats %>%
+  mutate(month = format(date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarise(
+    mean_amplitude = mean(amplitude),
+    sd_amplitude   = sd(amplitude),
+    max_amplitude  = max(amplitude),
+    min_amplitude  = min(amplitude)
+  ) %>%
+  mutate(
+    range_amplitude = max_amplitude - min_amplitude
+  )
+
+str(monthly_tides)
+
+# month          : the calendar month of aggregation, in "YYYY-MM" format
+# mean_amplitude : average daily tidal amplitude over the month, mean(amplitude)
+# sd_amplitude   : standard deviation of daily amplitudes in the month, shows variability
+# max_amplitude  : the highest daily amplitude observed in the month, indicates strongest spring tide
+# min_amplitude  : the lowest daily amplitude observed in the month, indicates weakest neap tide
+# range_amplitude: difference between max and min amplitude, quantifies the spring–neap contrast over the month
