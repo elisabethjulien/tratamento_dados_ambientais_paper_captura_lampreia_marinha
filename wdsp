@@ -1,0 +1,55 @@
+library(terra)
+library(dplyr)
+library(tidyr)
+
+r <- rast("C:/Users/elili/Downloads/vento/wspd3.mean.nc")
+
+# Fix coordinates
+ext(r) <- c(0, 360, -90, 90)
+crs(r) <- "EPSG:4326"
+
+# Portugal crop
+portugal_ext <- ext(349, 355, 35, 44)
+wind_crop <- crop(r, portugal_ext)
+
+plot(wind_crop)
+
+# Convert to dataframe
+df <- as.data.frame(wind_crop, xy = TRUE)
+
+# Pivot layers
+df_long <- pivot_longer(
+  df,
+  cols = starts_with("wspd3"),
+  names_to = "Layer",
+  values_to = "Wspd3"
+)
+
+# Correct dates
+dates <- seq(as.Date("1800-01-01"), by = "month", length.out = nlyr(wind_crop))
+
+# Match one date per layer
+df_long$Date <- dates[match(df_long$Layer, names(wind_crop))]
+
+# Convert cubed wind to speed
+df_long$WindSpeed <- df_long$Wspd3^(1/3)
+
+head(df_long)
+
+df_long <- df_long %>%
+  filter(!is.na(Wspd3), !is.na(WindSpeed))
+
+unique(df_long$Date)
+
+sort(unique(df_long$Date), decreasing = TRUE)
+
+unique_grid <- df_long %>%
+  distinct(x, y)
+
+head(unique_grid)
+
+df_long %>%
+  filter(Date == "2000-01-01") %>%
+  dplyr::select(x, y, Wspd3)
+
+write_csv(df_long,"C:/Users/elili/Downloads/vento/monthlywspd_1800_2026.csv" 
