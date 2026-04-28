@@ -1,0 +1,52 @@
+str(Dados_DGRM_lampreias_1989_2023_trabalhado_xlsx_2017_2023)
+ #dados diarios trbalados
+  
+df_bio<-Dados_DGRM_lampreias_1989_2023_trabalhado_xlsx_2017_2023
+
+library(dplyr)
+
+#mudar formato de data para coresponder ambas dataframes
+df_bio <- df_bio %>%
+  mutate(date = as.Date(paste(ANO, MES, DIA, sep = "-"),
+                        format = "%Y-%m-%d"))
+
+unique(df_bio$PORTO_REGISTO)
+
+#adicionar coluna "porto" nos dados ambientais que so teem coordenadas
+tmin_df <- tmin_df %>%
+  mutate(porto = "vdc_cam") %>%   # take first value per group
+  ungroup()
+unique(tmin_df$porto)
+
+df_bio <- df_bio %>%
+  mutate(porto = if_else(
+    PORTO_REGISTO %in% c("Viana do Castelo", "Caminha"),
+    "vdc_cam",
+    NA_character_
+  ))
+
+unique(df_bio$porto)
+
+#contamos o registros na nossa nova coluna para verificar que bate certo com os dados originais
+sum(df_bio$porto == "vdc_cam", na.rm = TRUE)
+sum(df_bio$PORTO_REGISTO %in% c("Viana do Castelo", "Caminha"))
+
+str(df_bio)
+str(tmin_df)
+
+#MEtge das dataframes
+#adicionar tmin, lon e lat por matches de data e porto entre df_bio e tmin_df
+df_bio <- df_bio %>%
+  left_join(
+    tmin_df %>% dplyr::select(date, porto, tmin, lon, lat),
+    by = c("date" = "date", "porto" = "porto")
+  )
+
+#mudar os nomes das colunas de lon e lat para sabermos de que dados veem (variaveis diferentes teem diferentes pontos espaciais)
+
+df_bio$lon_tmin<-df_bio$lon
+df_bio$lat_tmin<-df_bio$lat
+
+#eliminar outras colunas
+df_bio$lon=NULL
+df_bio$lat=NULL
