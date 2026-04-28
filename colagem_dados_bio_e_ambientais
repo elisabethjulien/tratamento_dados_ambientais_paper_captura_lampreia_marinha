@@ -50,3 +50,11 @@ df_bio$lat_tmin<-df_bio$lat
 #eliminar outras colunas
 df_bio$lon=NULL
 df_bio$lat=NULL
+
+
+#Adicionar tmax
+tmax_df <- tmax_df %>%
+  mutate(porto = "vdc_cam") %>%   # take first value per group
+  ungroup()
+unique(tmax_df$porto)
+
