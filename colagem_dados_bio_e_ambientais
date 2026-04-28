@@ -58,3 +58,41 @@ tmax_df <- tmax_df %>%
   ungroup()
 unique(tmax_df$porto)
 
+
+#####MAREGRAFICOS
+df_mare<-dados_maregraficos_IH_diarios_1_
+str(df_mare)
+
+unique(df_mare$location)
+
+df_mare <- df_mare%>%
+  mutate(porto = if_else(
+    location %in% c("VIANACASTELO"),
+    "vdc",
+    NA_character_
+  ))
+
+df_mare
+df_bio
+
+
+df_mare_vdc <- df_mare %>%
+  dplyr::filter(porto == "vdc") %>%
+  dplyr::select(date, mean_sea_level, max_sea_level, min_sea_level, amplitude)
+
+
+df_bio <- df_bio %>%
+  left_join(
+    df_mare %>%
+      dplyr::filter(porto == "vdc") %>%
+      dplyr::select(date, mean_sea_level, max_sea_level, min_sea_level, amplitude),
+    by = c("date" = "date")
+  ) %>%
+  dplyr::mutate(
+    across(
+      c(mean_sea_level, max_sea_level, min_sea_level, amplitude),
+      ~ if_else(PORTO_REGISTO == "Viana do Castelo", ., NA_real_)
+    )
+  )
+
+
