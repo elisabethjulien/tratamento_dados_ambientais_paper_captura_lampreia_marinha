@@ -14,6 +14,8 @@ wind_crop <- crop(r, portugal_ext)
 
 plot(wind_crop)
 
+wind_crop
+
 # Convert to dataframe
 df <- as.data.frame(wind_crop, xy = TRUE)
 
@@ -46,10 +48,119 @@ sort(unique(df_long$Date), decreasing = TRUE)
 unique_grid <- df_long %>%
   distinct(x, y)
 
-head(unique_grid)
+unique_grid
+
+
+# Convert 0–360 longitudes to standard -180..180
+grid_plot <- unique_grid %>%
+  mutate(lon = x - 360,
+         lat = y)
+
+# Plot actual raster cells (2° x 2°)
+ggplot() +
+  borders("world", colour = "grey40", fill = "grey95") +
+  
+  # draw each raster cell as a square tile
+  geom_tile(
+    data = grid_plot,
+    aes(x = lon, y = lat),
+    width = 2,
+    height = 2,
+    fill = "skyblue",
+    colour = "black",
+    alpha = 0.5
+  ) +
+  
+  # label cell centers
+  geom_text(
+    data = grid_plot,
+    aes(x = lon, y = lat,
+        label = paste0("(", lon, ", ", lat, ")")),
+    size = 3
+  ) +
+  
+  coord_quickmap(
+    xlim = c(-11, -6),
+    ylim = c(36, 43),
+    expand = FALSE
+  ) +
+  
+  labs(
+    title = "Actual Raster Grid Cells Covering Portugal Area",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal()
+
+
+library(ggplot2)
+library(dplyr)
+
+# grid
+grid_plot <- unique_grid %>%
+  mutate(lon = x - 360,
+         lat = y)
+
+# ports (approx coordinates)
+ports <- data.frame(
+  name = c("Porto", "Figueira da Foz", "Viana do Castelo", "Aveiro"),
+  lon  = c(-8.61, -8.87, -8.83, -8.65),
+  lat  = c(41.15, 40.15, 41.69, 40.64)
+)
+
+# plot
+ggplot() +
+  borders("world", colour = "grey40", fill = "grey95") +
+  
+  # raster grid cells
+  geom_tile(
+    data = grid_plot,
+    aes(x = lon, y = lat),
+    width = 2,
+    height = 2,
+    fill = "skyblue",
+    colour = "black",
+    alpha = 0.4
+  ) +
+  
+  # ports
+  geom_point(
+    data = ports,
+    aes(x = lon, y = lat),
+    color = "red",
+    size = 3
+  ) +
+  
+  geom_text(
+    data = ports,
+    aes(x = lon, y = lat, label = name),
+    vjust = -1,
+    size = 3.5
+  ) +
+  
+  coord_quickmap(
+    xlim = c(-11, -6),
+    ylim = c(36, 43),
+    expand = FALSE
+  ) +
+  
+  labs(
+    title = "Raster Grid + Portuguese Ports",
+    x = "Longitude",
+    y = "Latitude"
+  ) +
+  theme_minimal()
 
 df_long %>%
   filter(Date == "2000-01-01") %>%
   dplyr::select(x, y, Wspd3)
 
-write_csv(df_long,"C:/Users/elili/Downloads/vento/monthlywspd_1800_2026.csv" 
+str(df_long)
+
+df_long_351_41 <- df_long %>%
+  filter(x == 351, y == 41)
+
+df_long_351_41$date=df_long_351_41$Date
+df_long_351_41$Date=NULL
+write_csv(df_long_351_41,"C:/Users/elili/Downloads/vento/monthlywspd_1800_2026.csv" 
+
