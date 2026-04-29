@@ -12,7 +12,7 @@ library(dplyr)
 library(ncdf4)
 
 # Open the NetCDF file and read variables
-nc_file <- nc_open("./Downloads/tmax.1979.nc")
+nc_file <- nc_open("C:/Users/elili/Downloads/tmax/tmax.1979.nc")
 tmax <- aperm(ncvar_get(nc_file, "tmax"), c(2, 1, 3))  # Convert to [lon, lat, time]
 lon <- ncvar_get(nc_file, "lon")
 lat <- ncvar_get(nc_file, "lat")
@@ -53,90 +53,59 @@ mat_df$Date <- dates_repeated
 #######################################################"
 #AS A LOOP#
 ##################################################################"
-
 library(ncdf4)
 library(terra)
-library(dplyr)
-library(tidyr)
 library(lubridate)
 
-folder_path <- "./tempmax"
-nc_files <- list.files(path = folder_path, pattern = "\\.nc$", full.names = TRUE)
+folder_path <- "C:/Users/elili/Downloads/tmax"
 
+nc_files <- list.files(folder_path, pattern = "\\.nc$", full.names = TRUE)
 
-target_lon <- 351.0121
-target_lat <- 41.6340
-tolerance <- 0.001 
+portugal_ext <- ext(349, 355, 35, 44)
 
-# Function to process NetCDF files
-process_nc_file <- function(folder_path) {
-  # Open the NetCDF file and read variables
-  nc_file <- nc_open(folder_path)
-  tmax <- aperm(ncvar_get(nc_file, "tmax"), c(2, 1, 3))  # Convert to [lon, lat, time]
+all_data <- list()
+
+for (f in nc_files) {
+  
+  nc_file <- nc_open(f)
+  on.exit(nc_close(nc_file), add = TRUE)
+  
+  tmax <- aperm(ncvar_get(nc_file, "tmax"), c(2, 1, 3))
   lon <- ncvar_get(nc_file, "lon")
   lat <- ncvar_get(nc_file, "lat")
   time_var <- ncvar_get(nc_file, "time")
   
-  # Create SpatRaster from temperature data
+  dates <- ymd_hms("1900-01-01 00:00:00") + hours(time_var)
+  
   r <- rast(tmax)
   ext(r) <- c(min(lon), max(lon), min(lat), max(lat))
   crs(r) <- "EPSG:4326"
   
-  # Crop the raster to Portugal's extent
-  portugal_ext <- ext(351, 352, 40, 42)
-  tmax_crop <- crop(r, portugal_ext)
+  r_crop <- crop(r, portugal_ext)
   
-  # Convert time to dates
-  dates <- ymd_hms("1900-01-01 00:00:00") + hours(time_var)
+  file_df <- list()
   
-  # Convert to matrix
-  temp_matrix <- as.matrix(tmax_crop)
+  for (i in 1:nlyr(r_crop)) {
+    
+    df <- as.data.frame(r_crop[[i]], xy = TRUE)
+    
+    if (nrow(df) == 0) next
+    
+    # ✅ Rename the value column to something consistent
+    names(df)[3] <- "tmax"
+    
+    df$Date <- dates[i]
+    df$File <- basename(f)
+    
+    file_df[[length(file_df) + 1]] <- df
+  }
   
-  # Get latitudes and longitudes from the raster
-  lon_vals <- xFromCol(tmax_crop, 1:ncol(tmax_crop))
-  lat_vals <- yFromRow(tmax_crop, 1:nrow(tmax_crop))
-  
-  # Create a dataframe holding Lon, Lat, and temperature values
-  mat_df <- data.frame(
-    Lon = rep(lon_vals, each = nrow(tmax_crop)),
-    Lat = rep(lat_vals, times = ncol(tmax_crop)),
-    Value = as.vector(temp_matrix)
-  )
-  
-  # Replicate dates to match the number of rows
-  dates_repeated <- rep(dates, each = nrow(tmax_crop))
-  
-  # Add Date column to mat_df
-  mat_df$Date <- dates_repeated
-  
-  # Return processed data frame
-  return(mat_df)
+  all_data[[length(all_data) + 1]] <- do.call(rbind, file_df)
 }
 
-result_list <- lapply(nc_files, process_nc_file)
+final_df <- do.call(rbind, all_data)
 
-final_df <- do.call(rbind, result_list)
-
-# result: a dataframe merging daily max_temp info over the years from files dowloaded, split by geographic areas (lon lat), within the cropped area we defined
-head(final_df)
-
-final_df <- do.call(rbind, result_list)
-
-unique_coords <- final_df %>%
-  distinct(Lon, Lat)
-
-print(unique_coords)
-
-
-filtered_df <- final_df %>%
-  filter(
-    (abs(Lon - 351.0122) < tolerance & abs(Lat - 40.13819) < tolerance) |
-      (abs(Lon - 351.0122) < tolerance & abs(Lat - 41.63403) < tolerance)
-  )
-
-filtered_df$tmax<-filtered_df$Value
-filtered_df$Value<-NULL
-
-write.csv(filtered_df, "./tmax_1979_ports.csv", row.names = FALSE)
+write.csv(final_df, "C:/Users/elili/Downloads/tmax/tmax_daily_19762026.csv")
+          
 
 
