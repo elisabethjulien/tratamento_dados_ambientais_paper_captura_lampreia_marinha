@@ -91,7 +91,7 @@ for (f in nc_files) {
     
     if (nrow(df) == 0) next
     
-    # ✅ Rename the value column to something consistent
+    #  Rename the value column to something consistent
     names(df)[3] <- "tmax"
     
     df$Date <- dates[i]
@@ -107,7 +107,7 @@ final_df <- do.call(rbind, all_data)
 
 write.csv(final_df, "C:/Users/elili/Downloads/tmax/tmax_daily_19762026.csv")
 
-
+#Now for minimum temperatures 
 folder_path <- "C:/Users/elili/Downloads/tmax/tmin"
 
 # Get all NetCDF files
