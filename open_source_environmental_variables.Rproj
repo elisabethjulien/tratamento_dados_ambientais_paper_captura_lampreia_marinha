@@ -170,7 +170,49 @@ final_tmin <- bind_rows(all_data)
 # Preview
 head(final_tmin)
 
-write_csv(final_tmin,"C:/Users/elili/Downloads/tmax/tmin_daily_19792026.csv"
+port_lookup <- data.frame(
+  port = c("Porto", "Aveiro", "Caminha", "Viana do Castelo", "Figueira da Foz"),
+  x = c(351.5115, 351.5115, 351.0122, 351.0122, 351.0122),
+  y = c(41.13542, 40.63681, 41.63403, 41.63403, 40.13819)
+)
+
+final_tmin_rounded  <- final_tmin  %>%
+  mutate(
+    x = round(x, 4),
+    y = round(y, 4)
+  )
+
+port_lookup2 <- port_lookup %>%
+  mutate(
+    x = round(x, 4),
+    y = round(y, 4)
+  )
+
+
+tmindaily_filtered <- final_tmin_rounded %>%
+  semi_join(port_lookup2, by = c("x", "y"))
+
+tmindaily_final <- tmindaily_filtered %>%
+  left_join(
+    port_lookup2 %>%
+      mutate(porto_group = case_when(
+        port == "Porto" ~ "porto",
+        port == "Aveiro" ~ "aveiro",
+        port %in% c("Viana do Castelo", "Caminha") ~ "vdc_cam",
+        port == "Figueira da Foz" ~ "fig"
+      )) %>%
+      select(x, y, porto_group),
+    by = c("x", "y")
+  )
+
+tmindaily_final %>%
+  duplicated() %>%
+  sum()
+
+tmindaily_final_clean <- tmindaily_final %>%
+  distinct()
+
+write_csv(final_tmin,"C:/Users/elili/Downloads/tmax/tmin_daily_19792026.csv")
 
  
 
